@@ -1,0 +1,127 @@
+/* ============================================================
+   BRAND THEME TOKENS — single source of truth
+   ------------------------------------------------------------
+   This is the ONLY file that should define raw color values.
+   Every component should reference these variables (or the
+   Tailwind utilities generated from them below) — never
+   hardcode a hex value anywhere else in the app.
+
+   Paste this file into any future prompt when you need an
+   agent to "stick to our theme."
+   ============================================================ */
+
+:root {
+  /* ---- Brand colors (given) ---- */
+  --brand-green: #37ca37;
+  --brand-green-hover: #2eb32e;
+  --brand-green-muted: #1f7a1f;
+
+  --brand-blue: #188bf6;
+  --brand-blue-hover: #1478d1;
+  --brand-blue-muted: #135c9e;
+
+  /* ---- Green shade scale (for gradients, depth, hover states) ---- */
+  --brand-green-100: #d7f6d7;
+  --brand-green-300: #8fe38f;
+  --brand-green-400: #5cd95c;
+  --brand-green-500: #37ca37; /* = --brand-green */
+  --brand-green-600: #2eac2e;
+  --brand-green-700: #278d27;
+  --brand-green-800: #1e6f1e;
+  --brand-green-900: #165116;
+
+  /* ---- Blue shade scale ---- */
+  --brand-blue-100: #d3e7fd;
+  --brand-blue-300: #7cbdfb;
+  --brand-blue-400: #4aa4f8;
+  --brand-blue-500: #188bf6; /* = --brand-blue */
+  --brand-blue-600: #1476d1;
+  --brand-blue-700: #1161ac;
+  --brand-blue-800: #0d4c87;
+  --brand-blue-900: #0a3862;
+
+  /* ---- Gradients (the "premium" layer — every gradient derives from the two brand hues) ---- */
+  --gradient-green: linear-gradient(135deg, var(--brand-green-400) 0%, var(--brand-green-700) 100%);
+  --gradient-green-hover: linear-gradient(135deg, var(--brand-green-300) 0%, var(--brand-green-600) 100%);
+  --gradient-blue: linear-gradient(135deg, var(--brand-blue-400) 0%, var(--brand-blue-700) 100%);
+  --gradient-blue-hover: linear-gradient(135deg, var(--brand-blue-300) 0%, var(--brand-blue-600) 100%);
+  /* Signature accent — reserve this for ONE hero/standout element per screen, not everywhere */
+  --gradient-brand: linear-gradient(135deg, var(--brand-green-500) 0%, var(--brand-blue-500) 100%);
+
+  /* ---- Glow shadows to pair with gradients on hover ---- */
+  --shadow-glow-green: 0 8px 24px -8px rgba(55, 202, 55, 0.45);
+  --shadow-glow-blue: 0 8px 24px -8px rgba(24, 139, 246, 0.45);
+
+  /* ---- Dark theme surfaces (layered, not flat black) ---- */
+  --bg-base: #0a0d0c;        /* page background */
+  --bg-surface: #121614;     /* cards, panels */
+  --bg-surface-raised: #191f1c; /* modals, dropdowns, hover surfaces */
+  --bg-surface-hover: #202722;  /* hover state on surface elements */
+
+  /* ---- Borders ---- */
+  --border-subtle: #23281f;
+  --border-default: #2e352f;
+  --border-strong: #3d453e;
+
+  /* ---- Text ---- */
+  --fg-primary: #eef2ef;     /* headings, primary text */
+  --fg-secondary: #b7bfb9;   /* body text */
+  --fg-muted: #7c847d;       /* captions, placeholders */
+  --fg-on-brand: #06120a;    /* text placed ON TOP of brand green/blue buttons */
+
+  /* ---- Semantic (kept desaturated to match "no bold" direction) ---- */
+  --color-success: var(--brand-green);
+  --color-info: var(--brand-blue);
+  --color-danger: #d1554a;      /* muted red — needed for destructive actions/errors */
+  --color-danger-hover: #b8483e;
+  --color-warning: #c99a3f;     /* muted amber — needed for warnings */
+
+  /* ---- Focus ring (accessibility — keep visible, brand-colored) ---- */
+  --focus-ring: var(--brand-blue);
+}
+
+@theme inline {
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-hover: var(--brand-green-hover);
+  --color-brand-green-muted: var(--brand-green-muted);
+  --color-brand-green-100: var(--brand-green-100);
+  --color-brand-green-300: var(--brand-green-300);
+  --color-brand-green-400: var(--brand-green-400);
+  --color-brand-green-500: var(--brand-green-500);
+  --color-brand-green-600: var(--brand-green-600);
+  --color-brand-green-700: var(--brand-green-700);
+  --color-brand-green-800: var(--brand-green-800);
+  --color-brand-green-900: var(--brand-green-900);
+
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-hover: var(--brand-blue-hover);
+  --color-brand-blue-muted: var(--brand-blue-muted);
+  --color-brand-blue-100: var(--brand-blue-100);
+  --color-brand-blue-300: var(--brand-blue-300);
+  --color-brand-blue-400: var(--brand-blue-400);
+  --color-brand-blue-500: var(--brand-blue-500);
+  --color-brand-blue-600: var(--brand-blue-600);
+  --color-brand-blue-700: var(--brand-blue-700);
+  --color-brand-blue-800: var(--brand-blue-800);
+  --color-brand-blue-900: var(--brand-blue-900);
+
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-surface-raised: var(--bg-surface-raised);
+  --color-bg-surface-hover: var(--bg-surface-hover);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-on-brand: var(--fg-on-brand);
+
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+  --color-danger: var(--color-danger);
+  --color-danger-hover: var(--color-danger-hover);
+  --color-warning: var(--color-warning);
+}
