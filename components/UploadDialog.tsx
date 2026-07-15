@@ -14,9 +14,11 @@ const ACCEPTED_TYPES = new Set([
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ])
 const ACCEPT_ATTR = [...ACCEPTED_TYPES].join(',')
-const SUPPORTED_LABEL = 'JPG, PNG, GIF, WEBP, SVG, PDF, XLS, XLSX, CSV'
+const SUPPORTED_LABEL = 'JPG, PNG, GIF, WEBP, SVG, PDF, XLS, XLSX, CSV, DOC, DOCX'
 
 function getExtension(filename: string) {
   const i = filename.lastIndexOf('.')
@@ -44,6 +46,8 @@ function FileTypeIcon({ mime }: { mime: string }) {
   if (mime === 'application/pdf') return <FileText size={14} style={{ color: '#e05c4a' }} />
   if (mime.includes('spreadsheet') || mime.includes('excel') || mime.includes('csv'))
     return <FileSpreadsheet size={14} style={{ color: '#4caf7d' }} />
+  if (mime.includes('msword') || mime.includes('wordprocessingml'))
+    return <FileText size={14} style={{ color: '#4a90d9' }} />
   return <File size={14} style={{ color: 'var(--fg-muted)' }} />
 }
 
