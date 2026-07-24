@@ -32,7 +32,7 @@ export default async function ManageAccessPage() {
     supabase.from('profiles').select('id, email').order('email', { ascending: true }),
     supabase.from('download_access').select('user_id'),
     supabase.from('folders').select('id, name, parent_id, created_by, created_at'),
-    supabase.from('files').select('id, name, original_name, folder_id, uploaded_by, created_at'),
+    supabase.from('files').select('id, name, original_name, folder_id, uploaded_by, created_at, mime_type'),
   ])
 
   const authorizedIds = (access ?? []).map(a => a.user_id)
@@ -56,6 +56,7 @@ export default async function ManageAccessPage() {
       creatorId: f.uploaded_by,
       creatorLabel: f.uploaded_by && emailById.has(f.uploaded_by) ? maskEmail(emailById.get(f.uploaded_by)!) : null,
       linkFolderId: f.folder_id,
+      mimeType: f.mime_type,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 

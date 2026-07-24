@@ -1,8 +1,16 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { Folder, FolderTree, FileText } from 'lucide-react'
+import { Folder, FolderTree, FileText, Eye, Download, FolderOpen } from 'lucide-react'
+import { Lightbox } from '@/components/Lightbox'
+import { triggerDownload } from '@/lib/triggerDownload'
+import { isImage, isPdf } from '@/lib/fileTypes'
+
+// react-pdf touches browser-only APIs (DOMMatrix) at module load time, so it
+// must never be evaluated during server-side rendering.
+const PdfViewerModal = dynamic(() => import('@/components/PdfViewerModal'), { ssr: false })
 
 export interface ActivityItem {
   id: string
@@ -12,6 +20,7 @@ export interface ActivityItem {
   creatorId: string | null
   creatorLabel: string | null
   linkFolderId: string
+  mimeType?: string
 }
 
 interface Profile {
@@ -42,13 +51,46 @@ function formatDateTime(iso: string) {
   })
 }
 
+function ActionButton({
+  icon,
+  label,
+  onClick,
+  primary,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+  primary?: boolean
+}) {
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); onClick() }}
+      className="flex items-center gap-1.5 h-7 rounded-lg px-2.5 text-xs font-medium whitespace-nowrap transition-all duration-150"
+      style={{
+        background: primary ? 'var(--gradient-green)' : 'rgba(255,255,255,0.06)',
+        color: primary ? 'var(--fg-on-brand)' : 'var(--fg-secondary)',
+        border: primary ? 'none' : '1px solid rgba(255,255,255,0.1)',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
 export function ActivityTab({ items, profiles }: { items: ActivityItem[]; profiles: Profile[] }) {
   const router = useRouter()
   const [selectedUserId, setSelectedUserId] = useState('')
+  const [previewItem, setPreviewItem] = useState<ActivityItem | null>(null)
+  const [pdfItem, setPdfItem] = useState<ActivityItem | null>(null)
 
   const filtered = selectedUserId
     ? items.filter(i => i.creatorId === selectedUserId)
     : items
+
+  function goToFolder(id: string) {
+    router.push(`/team-portal/${id}`)
+  }
 
   return (
     <div>
@@ -80,30 +122,84 @@ export function ActivityTab({ items, profiles }: { items: ActivityItem[]; profil
               {items.length === 0 ? 'Nothing created yet.' : 'No matching activity.'}
             </p>
           )}
-          {filtered.map((item, i) => (
-            <button
-              key={`${item.type}-${item.id}`}
-              onClick={() => router.push(`/team-portal/${item.linkFolderId}`)}
-              className="flex items-center gap-3 w-full px-5 py-3.5 text-left transition-all duration-150"
-              style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-            >
-              <span className="shrink-0">{typeIcon(item.type)}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm truncate" style={{ color: 'var(--fg-primary)' }}>{item.name}</p>
-                <p className="text-[11px] mt-0.5" style={{ color: 'var(--fg-muted)' }}>
-                  {typeLabel(item.type)}
-                  {item.creatorLabel && <> · {item.creatorLabel}</>}
-                </p>
+          {filtered.map((item, i) => {
+            const previewable = item.type === 'file' && !!item.mimeType && (isImage(item.mimeType) || isPdf(item.mimeType))
+            return (
+              <div
+                key={`${item.type}-${item.id}`}
+                className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 px-5 py-3.5"
+                style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' }}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <span className="shrink-0">{typeIcon(item.type)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate" style={{ color: 'var(--fg-primary)' }}>{item.name}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--fg-muted)' }}>
+                      {typeLabel(item.type)}
+                      {item.creatorLabel && <> · {item.creatorLabel}</>}
+                      {' · '}{formatDateTime(item.createdAt)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap sm:shrink-0 sm:justify-end pl-6 sm:pl-0">
+                  {item.type === 'file' ? (
+                    <>
+                      {previewable && (
+                        <ActionButton
+                          icon={<Eye size={12} />}
+                          label="View"
+                          primary
+                          onClick={() => {
+                            if (item.mimeType && isImage(item.mimeType)) setPreviewItem(item)
+                            else setPdfItem(item)
+                          }}
+                        />
+                      )}
+                      <ActionButton
+                        icon={<Download size={12} />}
+                        label="Download"
+                        primary={!previewable}
+                        onClick={() => triggerDownload(item.id, item.name)}
+                      />
+                      <ActionButton
+                        icon={<FolderOpen size={12} />}
+                        label="Go to folder"
+                        onClick={() => goToFolder(item.linkFolderId)}
+                      />
+                    </>
+                  ) : (
+                    <ActionButton
+                      icon={<FolderOpen size={12} />}
+                      label="Open"
+                      primary
+                      onClick={() => goToFolder(item.linkFolderId)}
+                    />
+                  )}
+                </div>
               </div>
-              <span className="text-[11px] shrink-0 text-right" style={{ color: 'var(--fg-muted)' }}>
-                {formatDateTime(item.createdAt)}
-              </span>
-            </button>
-          ))}
+            )
+          })}
         </div>
       </div>
+
+      {previewItem && (
+        <Lightbox
+          fileId={previewItem.id}
+          name={previewItem.name}
+          allowDownload
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
+
+      {pdfItem && (
+        <PdfViewerModal
+          fileId={pdfItem.id}
+          name={pdfItem.name}
+          allowDownload
+          onClose={() => setPdfItem(null)}
+        />
+      )}
     </div>
   )
 }

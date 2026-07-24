@@ -3,17 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import { Download, ChevronLeft, ChevronRight, Lock, X } from 'lucide-react'
+import { triggerDownload } from '@/lib/triggerDownload'
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
-
-function triggerDownload(fileId: string, filename: string) {
-  const a = document.createElement('a')
-  a.href = `/api/files/${fileId}?mode=download`
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-}
 
 // ---- PDF viewer (canvas-rendered, no native browser download button) ----
 export default function PdfViewerModal({

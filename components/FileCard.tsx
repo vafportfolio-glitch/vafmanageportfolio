@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { MoreVertical, Edit3, Trash2, Copy, Check, X, ExternalLink, Download, Lock } from 'lucide-react'
+import { MoreVertical, Edit3, Trash2, Copy, Check, ExternalLink } from 'lucide-react'
 import { useViewer } from '@/lib/ViewerEmailContext'
+import { triggerDownload } from '@/lib/triggerDownload'
+import { isImage, isPdf, isSpreadsheet } from '@/lib/fileTypes'
+import { Lightbox } from '@/components/Lightbox'
 
 // react-pdf touches browser-only APIs (DOMMatrix) at module load time, so it
 // must never be evaluated during server-side rendering.
@@ -28,21 +31,6 @@ function formatBytes(bytes: number) {
 function getExtension(name: string) {
   const i = name.lastIndexOf('.')
   return i !== -1 ? name.slice(i).toLowerCase() : ''
-}
-
-function triggerDownload(fileId: string, filename: string) {
-  const a = document.createElement('a')
-  a.href = `/api/files/${fileId}?mode=download`
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-}
-
-function isImage(mime: string) { return mime.startsWith('image/') }
-function isPdf(mime: string) { return mime === 'application/pdf' }
-function isSpreadsheet(mime: string) {
-  return mime.includes('spreadsheet') || mime.includes('excel') || mime === 'text/csv'
 }
 
 // ---- Preview thumbnail components ----
@@ -159,72 +147,6 @@ function SpreadsheetPreview({ name, ext }: { name: string; ext: string }) {
           })}
         </div>
       </div>
-    </div>
-  )
-}
-
-// ---- Lightbox ----
-function Lightbox({
-  fileId,
-  name,
-  allowDownload,
-  onClose,
-}: {
-  fileId: string
-  name: string
-  allowDownload: boolean
-  onClose: () => void
-}) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  return (
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center p-6"
-      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}
-      onClick={onClose}
-    >
-      <div className="absolute top-5 right-5 flex items-center gap-2">
-        {allowDownload ? (
-          <button
-            onClick={e => { e.stopPropagation(); triggerDownload(fileId, name) }}
-            className="flex items-center gap-1.5 h-9 rounded-xl px-3.5 text-xs font-medium transition-all duration-150"
-            style={{ background: 'var(--gradient-green)', color: 'var(--fg-on-brand)' }}
-          >
-            <Download size={14} /> Download
-          </button>
-        ) : (
-          <span
-            className="flex items-center gap-1.5 h-9 rounded-xl px-3.5 text-xs"
-            style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--fg-muted)' }}
-            title="You don't have permission to download this file"
-          >
-            <Lock size={12} /> View only
-          </span>
-        )}
-        <button
-          className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150"
-          style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--fg-primary)' }}
-          onClick={onClose}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-        >
-          <X size={18} />
-        </button>
-      </div>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={`/api/files/${fileId}?mode=view`}
-        alt={name}
-        className="max-w-full max-h-full rounded-2xl object-contain"
-        style={{ boxShadow: '0 32px 80px -16px rgba(0,0,0,0.8)' }}
-        onClick={e => e.stopPropagation()}
-        onContextMenu={e => e.preventDefault()}
-        draggable={false}
-      />
     </div>
   )
 }
