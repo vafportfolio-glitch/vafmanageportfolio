@@ -7,9 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/Dialog'
 import { Toast } from '@/components/Toast'
-import { FolderCard, FolderIcon, type FolderItem } from '@/components/FolderCard'
+import { FolderCard, FolderCardSkeleton, FolderIcon, type FolderItem } from '@/components/FolderCard'
 import { FileCard, type FileItem } from '@/components/FileCard'
 import { UploadDialog } from '@/components/UploadDialog'
+import { useViewer } from '@/lib/ViewerEmailContext'
 
 function getExtension(name: string) {
   const i = name.lastIndexOf('.')
@@ -21,6 +22,7 @@ export default function FolderDetailPage() {
   const router = useRouter()
   const folderId = params.folderId as string
   const supabase = createClient()
+  const { userId, canDownload: isAuthorized } = useViewer()
 
   type FolderNode = FolderItem & { parent_id: string | null }
   const [folder, setFolder] = useState<FolderNode | null>(null)
@@ -28,6 +30,7 @@ export default function FolderDetailPage() {
   const [subfolders, setSubfolders] = useState<FolderItem[]>([])
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [creatorLabels, setCreatorLabels] = useState<Record<string, string>>({})
 
   // Create subfolder state
   const [isCreating, setIsCreating] = useState(false)
@@ -93,6 +96,26 @@ export default function FolderDetailPage() {
     load()
   }, [folderId])
 
+  // Creator labels are only ever requested for authorized viewers — the
+  // route re-checks this server-side too, but non-authorized users never
+  // even make the request.
+  useEffect(() => {
+    if (!isAuthorized || (subfolders.length === 0 && files.length === 0)) return
+    fetch('/api/creators', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderIds: subfolders.map(f => f.id),
+        fileIds: files.map(f => f.id),
+      }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => {
+        if (json) setCreatorLabels(prev => ({ ...prev, ...json.folders, ...json.files }))
+      })
+      .catch(() => {})
+  }, [isAuthorized, subfolders, files])
+
   // ---- Duplicate helpers ----
   const isDupFolder = (name: string, excludeId?: string) =>
     subfolders.some(f => f.name.toLowerCase() === name.toLowerCase() && f.id !== excludeId)
@@ -117,7 +140,7 @@ export default function FolderDetailPage() {
     const nextOrder = subfolders.length > 0 ? Math.max(...subfolders.map(f => f.sort_order)) + 1 : 1
     const { data, error } = await supabase
       .from('folders')
-      .insert({ name, parent_id: folderId, sort_order: nextOrder })
+      .insert({ name, parent_id: folderId, sort_order: nextOrder, created_by: userId })
       .select('id, name, sort_order')
       .single()
     if (error || !data) { console.error(error); setCreating(false); return }
@@ -310,15 +333,10 @@ export default function FolderDetailPage() {
       {/* Content */}
       <div>
         {loading ? (
-          <div className="flex items-center justify-center mt-20">
-            <div
-              className="w-10 h-10 rounded-full border-[3px] border-transparent animate-spin"
-              style={{
-                borderTopColor: 'var(--brand-green-400)',
-                borderRightColor: 'var(--brand-green-700)',
-                boxShadow: '0 0 16px -4px rgba(55,202,55,0.3)',
-              }}
-            />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <FolderCardSkeleton key={i} />
+            ))}
           </div>
         ) : !hasContent ? (
           <div className="flex flex-col items-center gap-4 pt-16">
@@ -341,7 +359,14 @@ export default function FolderDetailPage() {
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {subfolders.map(sf => (
-                    <FolderCard key={sf.id} folder={sf} onRename={() => openRename(sf)} onDelete={() => openDelete(sf)} onClick={() => router.push(`/team-portal/${sf.id}`)} />
+                    <FolderCard
+                      key={sf.id}
+                      folder={sf}
+                      onRename={() => openRename(sf)}
+                      onDelete={() => openDelete(sf)}
+                      onClick={() => router.push(`/team-portal/${sf.id}`)}
+                      createdByLabel={creatorLabels[sf.id] ?? null}
+                    />
                   ))}
                 </div>
               </div>
@@ -355,7 +380,13 @@ export default function FolderDetailPage() {
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                   {files.map(f => (
-                    <FileCard key={f.id} file={f} onRename={() => openRenameFile(f)} onDelete={() => openDeleteFile(f)} />
+                    <FileCard
+                      key={f.id}
+                      file={f}
+                      onRename={() => openRenameFile(f)}
+                      onDelete={() => openDeleteFile(f)}
+                      uploadedByLabel={creatorLabels[f.id] ?? null}
+                    />
                   ))}
                 </div>
               </div>

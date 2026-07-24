@@ -6,6 +6,7 @@ import { Dialog } from '@/components/Dialog'
 import { Button } from '@/components/ui/Button'
 import { uploadToCloudinary } from '@/lib/cloudinary'
 import { createClient } from '@/lib/supabase/client'
+import { useViewer } from '@/lib/ViewerEmailContext'
 import type { FileItem } from '@/components/FileCard'
 
 const ACCEPTED_TYPES = new Set([
@@ -62,6 +63,7 @@ interface Props {
 export function UploadDialog({ open, onClose, folderId, existingNames, onUploaded }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
+  const { userId } = useViewer()
   const [entries, setEntries] = useState<FileEntry[]>([])
   const [uploading, setUploading] = useState(false)
 
@@ -155,6 +157,7 @@ export function UploadDialog({ open, onClose, folderId, existingNames, onUploade
               file_url: url,
               mime_type: entry.file.type,
               size: entry.file.size,
+              uploaded_by: userId,
             })
             .select('id, name, original_name, file_url, mime_type, size, created_at')
             .single()

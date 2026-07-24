@@ -121,18 +121,47 @@ export function FolderMenu({
   )
 }
 
+export function FolderCardSkeleton() {
+  return (
+    <div
+      className="relative rounded-2xl p-5 w-full animate-pulse"
+      style={{
+        background: 'rgba(18, 22, 20, 0.55)',
+        border: '1px solid rgba(255,255,255,0.04)',
+        boxShadow:
+          '0 2px 20px -8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03)',
+      }}
+    >
+      <div
+        className="w-5 h-5 rounded-md"
+        style={{ background: 'rgba(255,255,255,0.06)' }}
+      />
+      <div
+        className="h-3.5 rounded mt-4 w-3/4"
+        style={{ background: 'rgba(255,255,255,0.07)' }}
+      />
+      <div
+        className="h-2.5 rounded mt-2.5 w-1/3"
+        style={{ background: 'rgba(255,255,255,0.05)' }}
+      />
+    </div>
+  )
+}
+
 export function FolderCard({
   folder,
   onRename,
   onDelete,
   onClick,
   fileCount,
+  createdByLabel,
 }: {
   folder: FolderItem
   onRename: () => void
   onDelete: () => void
   onClick?: () => void
   fileCount?: number
+  createdByLabel?: string | null
 }) {
   return (
     <div
@@ -171,6 +200,11 @@ export function FolderCard({
       >
         {fileCount !== undefined ? `${fileCount} ${fileCount === 1 ? 'file' : 'files'}` : ''}
       </span>
+      {createdByLabel && (
+        <span className="block text-[10px] mt-1" style={{ color: 'var(--fg-muted)', opacity: 0.7 }}>
+          Created by {createdByLabel}
+        </span>
+      )}
     </div>
   )
 }

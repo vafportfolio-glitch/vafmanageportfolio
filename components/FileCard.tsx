@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { MoreVertical, Edit3, Trash2, Copy, Check, X, ExternalLink } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { MoreVertical, Edit3, Trash2, Copy, Check, X, ExternalLink, Download, Lock } from 'lucide-react'
+import { useViewer } from '@/lib/ViewerEmailContext'
+
+// react-pdf touches browser-only APIs (DOMMatrix) at module load time, so it
+// must never be evaluated during server-side rendering.
+const PdfViewerModal = dynamic(() => import('@/components/PdfViewerModal'), { ssr: false })
 
 export interface FileItem {
   id: string
@@ -24,15 +30,13 @@ function getExtension(name: string) {
   return i !== -1 ? name.slice(i).toLowerCase() : ''
 }
 
-/** Convert a Cloudinary URL to a page-1 JPEG thumbnail */
-function pdfThumbUrl(url: string) {
-  // Insert transformation before the version or filename segment
-  return url.replace('/upload/', '/upload/w_400,h_280,c_fill,pg_1,f_jpg/')
-}
-
-/** Convert a Cloudinary image URL to a small thumbnail */
-function imgThumbUrl(url: string) {
-  return url.replace('/upload/', '/upload/w_400,h_280,c_fill,f_auto,q_auto/')
+function triggerDownload(fileId: string, filename: string) {
+  const a = document.createElement('a')
+  a.href = `/api/files/${fileId}?mode=download`
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
 }
 
 function isImage(mime: string) { return mime.startsWith('image/') }
@@ -43,7 +47,7 @@ function isSpreadsheet(mime: string) {
 
 // ---- Preview thumbnail components ----
 
-function ImagePreview({ url, name }: { url: string; name: string }) {
+function ImagePreview({ fileId, name }: { fileId: string; name: string }) {
   const [loaded, setLoaded] = useState(false)
   return (
     <div className="w-full h-full relative overflow-hidden">
@@ -56,9 +60,11 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
       )}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={imgThumbUrl(url)}
+        src={`/api/files/${fileId}?mode=thumb`}
         alt={name}
         onLoad={() => setLoaded(true)}
+        onContextMenu={e => e.preventDefault()}
+        draggable={false}
         className="w-full h-full object-cover transition-opacity duration-300"
         style={{ opacity: loaded ? 1 : 0 }}
       />
@@ -66,7 +72,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
   )
 }
 
-function PdfPreview({ url, name }: { url: string; name: string }) {
+function PdfPreview({ fileId, name }: { fileId: string; name: string }) {
   const [loaded, setLoaded] = useState(false)
   const [errored, setErrored] = useState(false)
   return (
@@ -83,10 +89,12 @@ function PdfPreview({ url, name }: { url: string; name: string }) {
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={pdfThumbUrl(url)}
+          src={`/api/files/${fileId}?mode=thumb`}
           alt={name}
           onLoad={() => setLoaded(true)}
           onError={() => { setErrored(true); setLoaded(true) }}
+          onContextMenu={e => e.preventDefault()}
+          draggable={false}
           className="w-full h-full object-cover transition-opacity duration-300"
           style={{ opacity: loaded ? 1 : 0 }}
         />
@@ -156,7 +164,17 @@ function SpreadsheetPreview({ name, ext }: { name: string; ext: string }) {
 }
 
 // ---- Lightbox ----
-function Lightbox({ url, name, onClose }: { url: string; name: string; onClose: () => void }) {
+function Lightbox({
+  fileId,
+  name,
+  allowDownload,
+  onClose,
+}: {
+  fileId: string
+  name: string
+  allowDownload: boolean
+  onClose: () => void
+}) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
@@ -169,22 +187,43 @@ function Lightbox({ url, name, onClose }: { url: string; name: string; onClose: 
       style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)' }}
       onClick={onClose}
     >
-      <button
-        className="absolute top-5 right-5 w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150"
-        style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--fg-primary)' }}
-        onClick={onClose}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-      >
-        <X size={18} />
-      </button>
+      <div className="absolute top-5 right-5 flex items-center gap-2">
+        {allowDownload ? (
+          <button
+            onClick={e => { e.stopPropagation(); triggerDownload(fileId, name) }}
+            className="flex items-center gap-1.5 h-9 rounded-xl px-3.5 text-xs font-medium transition-all duration-150"
+            style={{ background: 'var(--gradient-green)', color: 'var(--fg-on-brand)' }}
+          >
+            <Download size={14} /> Download
+          </button>
+        ) : (
+          <span
+            className="flex items-center gap-1.5 h-9 rounded-xl px-3.5 text-xs"
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--fg-muted)' }}
+            title="You don't have permission to download this file"
+          >
+            <Lock size={12} /> View only
+          </span>
+        )}
+        <button
+          className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-150"
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--fg-primary)' }}
+          onClick={onClose}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.14)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+        >
+          <X size={18} />
+        </button>
+      </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={url}
+        src={`/api/files/${fileId}?mode=view`}
         alt={name}
         className="max-w-full max-h-full rounded-2xl object-contain"
         style={{ boxShadow: '0 32px 80px -16px rgba(0,0,0,0.8)' }}
         onClick={e => e.stopPropagation()}
+        onContextMenu={e => e.preventDefault()}
+        draggable={false}
       />
     </div>
   )
@@ -195,15 +234,20 @@ export function FileCard({
   file,
   onRename,
   onDelete,
+  uploadedByLabel,
 }: {
   file: FileItem
   onRename: () => void
   onDelete: () => void
+  uploadedByLabel?: string | null
 }) {
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [lightbox, setLightbox] = useState(false)
+  const [pdfViewerOpen, setPdfViewerOpen] = useState(false)
+  const [denied, setDenied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { canDownload: allowed } = useViewer()
 
   useEffect(() => {
     if (!menuOpen) return
@@ -215,15 +259,25 @@ export function FileCard({
   }, [menuOpen])
 
   function copyLink() {
-    navigator.clipboard.writeText(file.file_url)
+    navigator.clipboard.writeText(`${window.location.origin}/api/files/${file.id}?mode=view`)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   function handlePreviewClick() {
     if (isImage(file.mime_type)) { setLightbox(true); return }
-    if (isPdf(file.mime_type)) { window.open(file.file_url, '_blank'); return }
-    if (isSpreadsheet(file.mime_type)) { window.open(file.file_url, '_blank'); return }
+    if (isPdf(file.mime_type)) { setPdfViewerOpen(true); return }
+    if (isSpreadsheet(file.mime_type)) {
+      // Browsers have no read-only viewer for xlsx/csv — opening it IS downloading it,
+      // so non-permitted users get a denial instead of a file.
+      if (allowed) {
+        triggerDownload(file.id, displayName)
+      } else {
+        setDenied(true)
+        setTimeout(() => setDenied(false), 2500)
+      }
+      return
+    }
   }
 
   const ext = getExtension(file.original_name)
@@ -256,8 +310,8 @@ export function FileCard({
           style={{ height: '120px', cursor: clickable ? 'pointer' : 'default' }}
           onClick={handlePreviewClick}
         >
-          {isImage(file.mime_type) && <ImagePreview url={file.file_url} name={displayName} />}
-          {isPdf(file.mime_type) && <PdfPreview url={file.file_url} name={displayName} />}
+          {isImage(file.mime_type) && <ImagePreview fileId={file.id} name={displayName} />}
+          {isPdf(file.mime_type) && <PdfPreview fileId={file.id} name={displayName} />}
           {isSpreadsheet(file.mime_type) && <SpreadsheetPreview name={displayName} ext={ext} />}
 
           {/* Hover overlay for clickable types */}
@@ -273,6 +327,18 @@ export function FileCard({
               </div>
             </div>
           )}
+
+          {/* Permission-denied toast for spreadsheet clicks */}
+          {denied && (
+            <div
+              className="absolute inset-0 flex items-center justify-center text-center px-3"
+              style={{ background: 'rgba(0,0,0,0.75)' }}
+            >
+              <span className="text-[11px] font-medium" style={{ color: 'white' }}>
+                You don&apos;t have permission to download this file.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Bottom info row */}
@@ -284,6 +350,11 @@ export function FileCard({
             <p className="text-[10px] mt-0.5" style={{ color: 'var(--fg-muted)' }}>
               {formatBytes(file.size)}
             </p>
+            {uploadedByLabel && (
+              <p className="text-[10px] mt-0.5" style={{ color: 'var(--fg-muted)', opacity: 0.7 }}>
+                Uploaded by {uploadedByLabel}
+              </p>
+            )}
           </div>
 
           {/* Menu */}
@@ -339,7 +410,24 @@ export function FileCard({
       </div>
 
       {/* Lightbox */}
-      {lightbox && <Lightbox url={file.file_url} name={displayName} onClose={() => setLightbox(false)} />}
+      {lightbox && (
+        <Lightbox
+          fileId={file.id}
+          name={displayName}
+          allowDownload={allowed}
+          onClose={() => setLightbox(false)}
+        />
+      )}
+
+      {/* PDF viewer */}
+      {pdfViewerOpen && (
+        <PdfViewerModal
+          fileId={file.id}
+          name={displayName}
+          allowDownload={allowed}
+          onClose={() => setPdfViewerOpen(false)}
+        />
+      )}
     </>
   )
 }

@@ -7,13 +7,17 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Dialog } from '@/components/Dialog'
 import { Toast } from '@/components/Toast'
-import { FolderCard, type FolderItem } from '@/components/FolderCard'
+import { FolderCard, FolderCardSkeleton, type FolderItem } from '@/components/FolderCard'
+import { useViewer } from '@/lib/ViewerEmailContext'
 
 export default function TeamPortalPage() {
   const router = useRouter()
+  const { userId, canDownload: isAuthorized } = useViewer()
   const [folders, setFolders] = useState<FolderItem[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [focused, setFocused] = useState(false)
+  const [creatorLabels, setCreatorLabels] = useState<Record<string, string>>({})
   const supabase = createClient()
 
   // Create state
@@ -47,8 +51,24 @@ export default function TeamPortalPage() {
       .order('sort_order', { ascending: true })
       .then(({ data }) => {
         if (data) setFolders(data)
+        setLoading(false)
       })
   }, [])
+
+  // Creator labels are only ever requested for authorized viewers — the
+  // route re-checks this server-side too, but non-authorized users never
+  // even make the request.
+  useEffect(() => {
+    if (!isAuthorized || folders.length === 0) return
+    fetch('/api/creators', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderIds: folders.map(f => f.id), fileIds: [] }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then(json => { if (json) setCreatorLabels(prev => ({ ...prev, ...json.folders })) })
+      .catch(() => {})
+  }, [isAuthorized, folders])
 
   const filtered = folders.filter(f =>
     f.name.toLowerCase().includes(search.toLowerCase())
@@ -88,7 +108,7 @@ export default function TeamPortalPage() {
 
     const { data, error } = await supabase
       .from('folders')
-      .insert({ name, parent_id: null, sort_order: nextOrder })
+      .insert({ name, parent_id: null, sort_order: nextOrder, created_by: userId })
       .select('id, name, sort_order')
       .single()
 
@@ -243,7 +263,9 @@ export default function TeamPortalPage() {
               color: 'var(--brand-green-400)',
             }}
           >
-            {filtered.length} {filtered.length === 1 ? 'category' : 'categories'}
+            {loading
+              ? 'Loading...'
+              : `${filtered.length} ${filtered.length === 1 ? 'category' : 'categories'}`}
           </span>
         </div>
         <p className="text-sm max-w-md" style={{ color: 'var(--fg-muted)' }}>
@@ -311,7 +333,13 @@ export default function TeamPortalPage() {
 
       {/* ---- Grid ---- */}
       <div>
-        {filtered.length > 0 ? (
+        {loading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <FolderCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {filtered.map(folder => (
             <FolderCard
@@ -320,6 +348,7 @@ export default function TeamPortalPage() {
               onClick={() => router.push(`/team-portal/${folder.id}`)}
               onRename={() => openRename(folder)}
               onDelete={() => openDelete(folder)}
+              createdByLabel={creatorLabels[folder.id] ?? null}
             />
           ))}
         </div>

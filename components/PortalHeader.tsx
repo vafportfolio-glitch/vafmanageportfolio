@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { LogOut, ShieldCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/Button'
 
-export function PortalHeader({ email }: { email: string }) {
+export function PortalHeader({ email, canManageAccess }: { email: string; canManageAccess: boolean }) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -33,6 +33,12 @@ export function PortalHeader({ email }: { email: string }) {
           Logged in as <strong style={{ color: 'var(--fg-primary)' }}>{email}</strong>
         </span>
       </div>
+      {canManageAccess && (
+        <Button variant="outline" size="sm" onClick={() => router.push('/team-portal/manage-access')}>
+          <ShieldCheck size={14} />
+          Manage access
+        </Button>
+      )}
       <Button variant="outline" size="sm" onClick={handleLogout}>
         <LogOut size={14} />
         Log out

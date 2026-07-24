@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { PortalHeader } from '@/components/PortalHeader'
+import { ViewerEmailProvider } from '@/lib/ViewerEmailContext'
+import { isAuthorizedDownloader } from '@/lib/downloadAccess'
 
 export default async function TeamPortalLayout({
   children,
@@ -14,10 +16,12 @@ export default async function TeamPortalLayout({
     redirect('/team-login')
   }
 
+  const canDownload = await isAuthorizedDownloader(supabase, user.id)
+
   return (
-    <>
-      <PortalHeader email={user.email} />
+    <ViewerEmailProvider userId={user.id} email={user.email} canDownload={canDownload}>
+      <PortalHeader email={user.email} canManageAccess={canDownload} />
       {children}
-    </>
+    </ViewerEmailProvider>
   )
 }
